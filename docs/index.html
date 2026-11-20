@@ -104,7 +104,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 48px;color:var(--dim);fon
 <section id="kit"><h2>The rest of the kit</h2><p class="sub">The linter is the center. Around it is what a production mesh team also runs.</p>
 <div class="grid">
 <div class="panel card"><span class="t">Go</span><h3>meshdoctor CLI and WASM</h3><p>Text, JSON and GitHub annotation output. Exit code 1 on errors, <code>--strict</code> for warnings. Table-driven tests per rule.</p></div>
-<div class="panel card"><span class="t">Java 21</span><h3>checkout service</h3><p>The mesh workload. Version from env, a failure rate for outlier tests, readiness that flips on SIGTERM. JUnit tests, distroless-style non-root image.</p></div>
+<div class="panel card"><span class="t">Java 21</span><h3>checkout service</h3><p>The mesh workload. Version from env, a failure rate for outlier tests, readiness that flips on SIGTERM. JUnit tests, non-root image.</p></div>
 <div class="panel card"><span class="t">Python</span><h3>SLO burn-rate alerts</h3><p>Turns an availability SLO into four multi-window Prometheus alerts on Istio's own request metric. Worked budget math in the tests.</p></div>
 <div class="panel card"><span class="t">Jenkins</span><h3>Pipeline and shared library</h3><p>Parallel Go, Python and Java tests, a <code>meshGate</code> library step, Terraform validate, and the e2e on main.</p></div>
 <div class="panel card"><span class="t">Terraform · AWS</span><h3>EKS with Istio</h3><p>VPC, EKS with IMDSv2 only and a CIDR-restricted API, Istio base, istiod and an NLB ingress through Helm. Validated, not applied.</p></div>
