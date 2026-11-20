@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>meshdoctor | Catch Istio 503s before you apply</title>
+<meta name="description" content="meshdoctor lints Istio and Kubernetes manifests for the mistakes that become 503s: bad canary weights, missing subsets, mTLS mismatch, no outlier detection. Open source Go. Try it in your browser.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#07090E" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F4F5F8" media="(prefers-color-scheme: light)">
+<meta property="og:title" content="meshdoctor: catch Istio 503s before you apply">
+<meta property="og:description" content="Lint Istio config in Go, in CI or in your browser. 11 rules, a Java workload, Jenkins, Terraform EKS and a real kind e2e.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2310b981'/%3E%3Cpath d='M8 17l5 5 11-12' stroke='%2307090E' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=optional" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#07090E;--panel:#0B0F17;--panel2:#111726;--line:#182238;--fg:#E2E8F0;--mut:#94A3B8;--dim:#808FA5;--brand:#10B981;--brandtxt:#6EE7B7;--cyan:#22D3EE;--violet:#C4B5FD;--err:#FB7185;--warn:#FBBF24;--info:#38BDF8;--grid:rgba(255,255,255,.03);--a1:rgba(16,185,129,.16);--a2:rgba(139,92,246,.13);--a3:rgba(6,182,212,.11)}
+@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#F4F5F8;--panel:#fff;--panel2:#FAFAFC;--line:#D9DCE3;--fg:#181C24;--mut:#535B69;--dim:#636C7A;--brand:#047857;--brandtxt:#065F46;--cyan:#155E75;--violet:#6D28D9;--err:#BE123C;--warn:#B45309;--info:#0369A1;--grid:rgba(0,0,0,.045);--a1:rgba(16,185,129,.2);--a2:rgba(139,92,246,.14);--a3:rgba(6,182,212,.16)}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+.aurora{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.aurora i{position:absolute;width:55vw;height:55vw;border-radius:50%;filter:blur(90px)}
+.aurora i:nth-child(1){background:var(--a1);top:-20vw;left:-10vw}.aurora i:nth-child(2){background:var(--a2);top:5vw;right:-15vw}.aurora i:nth-child(3){background:var(--a3);bottom:-25vw;left:25vw}
+.progress{position:fixed;top:0;left:0;height:2px;width:0;background:linear-gradient(90deg,var(--brand),var(--cyan));z-index:60}
+a{color:var(--brandtxt);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--panel) 80%,transparent);backdrop-filter:blur(16px) saturate(150%);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;color:var(--fg);font-size:18px}
+.brand:hover{text-decoration:none}.logo{width:28px;height:28px;border-radius:8px;background:var(--brand);display:grid;place-items:center}
+nav{display:flex;gap:4px;font:500 12px 'JetBrains Mono',monospace}nav a{color:var(--mut);padding:6px 10px;border-radius:8px}nav a:hover{background:var(--panel2);color:var(--brandtxt);text-decoration:none}
+@media (max-width:720px){nav a:not(.gh){display:none}}
+.hero{padding:72px 0 40px;text-align:center}
+.pill{display:inline-block;font:500 12px 'JetBrains Mono',monospace;color:var(--brandtxt);background:color-mix(in srgb,var(--brand) 12%,transparent);border:1px solid color-mix(in srgb,var(--brand) 35%,transparent);padding:4px 12px;border-radius:99px}
+h1{font-size:clamp(34px,6vw,60px);line-height:1.05;letter-spacing:-.035em;font-weight:800;margin:18px auto 16px;max-width:15em}
+h1 em{font-style:normal;background:linear-gradient(90deg,var(--brand),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--mut);font-size:18px;max-width:40em;margin:0 auto 28px}
+.cmd{display:inline-flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px 10px 16px;font:500 13px 'JetBrains Mono',monospace;max-width:100%;overflow-x:auto}
+.cmd code{white-space:nowrap}
+button{font:600 12px 'JetBrains Mono',monospace;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);padding:7px 12px}
+button:hover{border-color:var(--brand)}button:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+button.primary{background:var(--brand);border-color:var(--brand);color:#04110C}
+section{padding:40px 0}h2{font-size:28px;letter-spacing:-.02em;margin:0 0 6px}.sub{color:var(--mut);margin:0 0 24px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px}
+.play{display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+@media (max-width:860px){.play{grid-template-columns:1fr}}
+.play>div{padding:16px;min-width:0}.play>div+div{border-left:1px solid var(--line)}
+@media (max-width:860px){.play>div+div{border-left:0;border-top:1px solid var(--line)}}
+.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;font:500 12px 'JetBrains Mono',monospace;color:var(--dim)}
+textarea{width:100%;height:420px;resize:vertical;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:12px;font:13px/1.5 'JetBrains Mono',monospace;tab-size:2}
+#out{height:420px;overflow:auto;font:13px/1.5 'JetBrains Mono',monospace}
+.f{border:1px solid var(--line);border-left-width:3px;border-radius:8px;padding:8px 10px;margin-bottom:8px;background:var(--panel2)}
+.f.error{border-left-color:var(--err)}.f.warn{border-left-color:var(--warn)}.f.info{border-left-color:var(--info)}
+.f b{font-weight:600}.f .s{text-transform:uppercase;font-size:11px;letter-spacing:.06em}.f.error .s{color:var(--err)}.f.warn .s{color:var(--warn)}.f.info .s{color:var(--info)}
+.f .fix{color:var(--dim);margin-top:2px;font-family:Inter,sans-serif;font-size:13px}.empty{color:var(--dim);padding:24px 4px}
+.note{color:var(--dim);font-size:13px;margin:10px 2px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}th{font:500 12px 'JetBrains Mono',monospace;color:var(--dim)}tr:last-child td{border-bottom:0}
+td:first-child{font-family:'JetBrains Mono',monospace;color:var(--brandtxt);white-space:nowrap}.tw{overflow-x:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{padding:18px}.card h3{margin:0 0 6px;font-size:16px}.card p{margin:0;color:var(--mut);font-size:14px}.card .t{font:500 11px 'JetBrains Mono',monospace;color:var(--violet);margin-bottom:8px;display:block}
+pre{margin:0;padding:16px;overflow:auto;background:var(--bg);border-radius:12px;font:12.5px/1.6 'JetBrains Mono',monospace;color:var(--fg)}
+.ok{color:var(--brandtxt)}
+footer{border-top:1px solid var(--line);padding:28px 0 48px;color:var(--dim);font-size:14px;position:relative;z-index:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div><div class="progress" id="prog" aria-hidden="true"></div>
+<header><div class="wrap"><a class="brand" href="./"><span class="logo"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M8 17l5 5 11-12" stroke="#04110C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>meshdoctor</a>
+<nav aria-label="Main"><a href="#try">Try it</a><a href="#rules">Rules</a><a href="#kit">The kit</a><a href="#proof">Proof</a><a href="#limits">Limits</a><a class="gh" href="https://github.com/gerardrecinto/meshdoctor">GitHub</a></nav></div></header>
+<main class="wrap">
+<div class="hero">
+<span class="pill">Istio · Go · Java · Python · Jenkins · EKS</span>
+<h1>Catch the <em>Istio 503</em> before you apply it</h1>
+<p class="lead">meshdoctor reads your Istio and Kubernetes YAML and flags the mistakes that become outages: canary weights that do not add up, subsets that do not exist, mTLS mismatches, no outlier detection.</p>
+<div class="cmd"><code id="c1">go run github.com/gerardrecinto/meshdoctor/cmd/meshdoctor@latest deploy/</code><button onclick="copy('c1',this)">Copy</button></div>
+<p class="note" id="copystatus" role="status">&nbsp;</p>
+</div>
+
+<section id="try"><h2>Try it in your browser</h2><p class="sub">This is the same Go code as the CLI, compiled to WebAssembly. Your YAML stays on this page.</p>
+<div class="panel play">
+<div><div class="bar"><span>input.yaml</span><span><button id="sb">Load broken sample</button> <button id="sg">Clear</button></span></div><textarea id="in" spellcheck="false" aria-label="Istio YAML to lint"></textarea></div>
+<div><div class="bar"><span id="sum">findings</span><button class="primary" id="run">Run lint</button></div><div id="out" aria-live="polite"><div class="empty">Press Run lint. The first run downloads the engine (about 1 MB compressed).</div></div></div>
+</div></section>
+
+<section id="rules"><h2>What it checks</h2><p class="sub">Eleven rules. Each one is a mistake that either fails at apply time or shows up later as a 503.</p>
+<div class="panel tw"><table><thead><tr><th>Rule</th><th>Catches</th><th>What you would see</th></tr></thead><tbody>
+<tr><td>MD001</td><td>Route weights that do not add up to 100</td><td>Rejected apply, or a canary at the wrong share</td></tr>
+<tr><td>MD002</td><td>Subset used in a VirtualService but not defined in a DestinationRule</td><td>503 NR</td></tr>
+<tr><td>MD003</td><td>DestinationRule with no outlier detection</td><td>A bad replica keeps getting traffic</td></tr>
+<tr><td>MD004</td><td>PERMISSIVE or DISABLE peer authentication</td><td>Plaintext accepted</td></tr>
+<tr><td>MD005</td><td>Client TLS DISABLE against a STRICT namespace</td><td>503 UC</td></tr>
+<tr><td>MD006</td><td>More than 3 retries, or retries with no perTryTimeout</td><td>Retry storms</td></tr>
+<tr><td>MD007</td><td>HTTP route with no timeout</td><td>Held connections</td></tr>
+<tr><td>MD008</td><td>HTTPS gateway with no certificate, HTTP with no redirect</td><td>TLS handshake failures</td></tr>
+<tr><td>MD009</td><td>ALLOW policy with an empty rule</td><td>Policy that allows everything</td></tr>
+<tr><td>MD010</td><td>Namespace not injected, or a pod that opts out under STRICT</td><td>Pod with no sidecar</td></tr>
+<tr><td>MD011</td><td>Two VirtualServices for the same host</td><td>Undefined routing winner</td></tr>
+</tbody></table></div></section>
+
+<section id="kit"><h2>The rest of the kit</h2><p class="sub">The linter is the center. Around it is what a production mesh team also runs.</p>
+<div class="grid">
+<div class="panel card"><span class="t">Go</span><h3>meshdoctor CLI and WASM</h3><p>Text, JSON and GitHub annotation output. Exit code 1 on errors, <code>--strict</code> for warnings. Table-driven tests per rule.</p></div>
+<div class="panel card"><span class="t">Java 21</span><h3>checkout service</h3><p>The mesh workload. Version from env, a failure rate for outlier tests, readiness that flips on SIGTERM. JUnit tests, distroless-style non-root image.</p></div>
+<div class="panel card"><span class="t">Python</span><h3>SLO burn-rate alerts</h3><p>Turns an availability SLO into four multi-window Prometheus alerts on Istio's own request metric. Worked budget math in the tests.</p></div>
+<div class="panel card"><span class="t">Jenkins</span><h3>Pipeline and shared library</h3><p>Parallel Go, Python and Java tests, a <code>meshGate</code> library step, Terraform validate, and the e2e on main.</p></div>
+<div class="panel card"><span class="t">Terraform · AWS</span><h3>EKS with Istio</h3><p>VPC, EKS with IMDSv2 only and a CIDR-restricted API, Istio base, istiod and an NLB ingress through Helm. Validated, not applied.</p></div>
+<div class="panel card"><span class="t">Runbooks</span><h3>503 flags, rollback, no sidecar</h3><p>Short pages written for the person on call: which flag means config, endpoints, TLS or the service.</p></div>
+</div></section>
+
+<section id="proof"><h2>Proof, not claims</h2><p class="sub">Output of <code>bash scripts/e2e.sh</code> on a kind cluster with Istio 1.24.2. It builds the Java image, installs the mesh and checks what traffic does.</p>
+<div class="panel"><pre id="e2e">PASS  meshdoctor: deploy/ has no errors or warnings
+PASS  meshdoctor: testdata/bad.yaml is rejected
+PASS  istioctl analyze: no issues
+PASS  canary: 21 of 200 requests reached v2 (weight 10)
+PASS  mTLS: pod without a sidecar is refused (curl status 000)
+PASS  authz: another service account gets 403
+PASS  outlier detection: v2 ejected 1 time(s) after returning 5xx
+PASS  retries and ejection: the last 20 of 20 requests succeeded
+ALL PASS</pre></div></section>
+
+<section id="limits"><h2>Limits</h2>
+<div class="panel card"><p>Lint checks only the files you give it; a rule that needs another resource says so when that resource is missing. The Terraform is validated with <code>terraform validate</code> and was not applied to an AWS account. The Jenkinsfile was syntax-checked by a Jenkins controller but not run on a build agent. The e2e is one namespace and two replicas: it shows behavior, not capacity.</p></div></section>
+</main>
+<footer><div class="wrap">MIT license · <a href="https://github.com/gerardrecinto/meshdoctor">Source</a> · Built by <a href="https://github.com/gerardrecinto">Gerard Recinto</a></div></footer>
+<script>
+function copy(id,btn){var t=document.getElementById(id).innerText,s=document.getElementById('copystatus');
+function ok(){btn.innerText='Copied';s.textContent='Command copied.';setTimeout(function(){btn.innerText='Copy'},1500)}
+if(navigator.clipboard){navigator.clipboard.writeText(t).then(ok,function(){s.textContent='Select the command and copy it.'})}else{s.textContent='Select the command and copy it.'}}
+addEventListener('scroll',function(){var h=document.documentElement;document.getElementById('prog').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight||1)*100)+'%'},{passive:true});
+var inp=document.getElementById('in'),out=document.getElementById('out'),sum=document.getElementById('sum'),ready=null;
+function sample(){return fetch('sample-bad.yaml').then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){inp.value=t}).catch(function(){inp.value='kind: DestinationRule\nmetadata: {name: web, namespace: shop}\nspec: {host: web}\n'})}
+document.getElementById('sb').onclick=function(){sample().then(run)};document.getElementById('sg').onclick=function(){inp.value='';out.innerHTML='<div class="empty">Paste YAML and press Run lint.</div>';sum.textContent='findings'};
+function engine(){if(ready)return ready;ready=new Promise(function(res,rej){var s=document.createElement('script');s.src='wasm_exec.js';s.onload=function(){var go=new Go();
+WebAssembly.instantiateStreaming(fetch('meshdoctor.wasm'),go.importObject).catch(function(){return fetch('meshdoctor.wasm').then(function(r){return r.arrayBuffer()}).then(function(b){return WebAssembly.instantiate(b,go.importObject)})}).then(function(m){go.run(m.instance);res()},rej)};s.onerror=rej;document.head.appendChild(s)});return ready}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function run(){out.innerHTML='<div class="empty">Loading engine...</div>';engine().then(function(){var r=JSON.parse(meshdoctorLint(inp.value));
+if(r.error){sum.textContent='YAML error';out.innerHTML='<div class="f error"><span class="s">error</span> '+esc(r.error)+'</div>';return}
+var fs=r.findings,e=0,w=0;fs.forEach(function(f){if(f.severity==='error')e++;else if(f.severity==='warn')w++});
+sum.textContent=r.resources+' resources: '+e+' errors, '+w+' warnings';
+out.innerHTML=fs.length?fs.map(function(f){return'<div class="f '+f.severity+'"><span class="s">'+f.severity+'</span> <b>'+f.rule+'</b> '+esc(f.kind+' '+(f.namespace?f.namespace+'/':'')+f.name)+' <span style="color:var(--dim)">line '+f.line+'</span><div>'+esc(f.message)+'</div>'+(f.fix?'<div class="fix">Fix: '+esc(f.fix)+'</div>':'')+'</div>'}).join(''):'<div class="empty ok">No findings.</div>'}).catch(function(){out.innerHTML='<div class="f error"><span class="s">error</span> The engine did not load. Reload the page, or run the CLI with the command at the top.</div>'})}
+document.getElementById('run').onclick=run;sample();
+</script>
+</body>
+</html>

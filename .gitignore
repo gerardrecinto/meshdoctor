@@ -1,0 +1,11 @@
+bin/
+.cache/
+target/
+__pycache__/
+.pytest_cache/
+.venv/
+.terraform/
+*.tfstate*
+.terraform.lock.hcl
+docs/meshdoctor.wasm
+docs/wasm_exec.js

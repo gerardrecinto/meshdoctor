@@ -1,0 +1,85 @@
+# Eleven mistakes, one per rule. Run: meshdoctor testdata/bad.yaml
+apiVersion: v1
+kind: Namespace
+metadata: {name: shop}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: billing, labels: {istio-injection: enabled}}
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata: {name: default, namespace: shop}
+spec: {mtls: {mode: PERMISSIVE}}
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata: {name: default, namespace: billing}
+spec: {mtls: {mode: STRICT}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: web-v1, namespace: shop}
+spec:
+  template:
+    metadata: {labels: {app: web, version: v1}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: ledger, namespace: billing}
+spec:
+  template:
+    metadata:
+      labels: {app: ledger}
+      annotations: {sidecar.istio.io/inject: "false"}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: {name: web, namespace: shop}
+spec:
+  hosts: [web]
+  http:
+    - retries: {attempts: 5}
+      route:
+        - {destination: {host: web, subset: v1}, weight: 70}
+        - {destination: {host: web, subset: v3}, weight: 70}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: {name: web-copy, namespace: shop}
+spec:
+  hosts: [web]
+  http:
+    - timeout: 5s
+      route: [{destination: {host: web}}]
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: {name: web, namespace: shop}
+spec:
+  host: web
+  subsets: [{name: v1, labels: {version: v1}}, {name: v2, labels: {version: v2}}]
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: {name: ledger, namespace: billing}
+spec:
+  host: ledger
+  trafficPolicy:
+    outlierDetection: {consecutive5xxErrors: 3}
+    tls: {mode: DISABLE}
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata: {name: edge, namespace: shop}
+spec:
+  selector: {istio: ingressgateway}
+  servers:
+    - {port: {number: 80, name: http, protocol: HTTP}, hosts: ["*"]}
+    - {port: {number: 443, name: https, protocol: HTTPS}, hosts: ["*"], tls: {mode: SIMPLE}}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: open, namespace: shop}
+spec:
+  rules: [{}]

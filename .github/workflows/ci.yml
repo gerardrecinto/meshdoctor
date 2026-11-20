@@ -1,0 +1,44 @@
+name: ci
+on:
+  push: {branches: [main]}
+  pull_request:
+permissions: {contents: read}
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - run: go vet ./... && go test -race ./...
+      - name: Lint the mesh manifests
+        run: go run ./cmd/meshdoctor --strict --min-severity warn --format github deploy
+  python:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r python/requirements.txt && cd python && python -m pytest -q
+  java:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - run: mvn -q -B -f java/checkout/pom.xml test
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: cd terraform/eks && terraform init -backend=false -input=false && terraform validate && terraform fmt -check
+  mesh-e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - uses: helm/kind-action@v1
+        with: {install_only: true, version: v0.25.0}
+      - run: bash scripts/e2e.sh

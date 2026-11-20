@@ -1,0 +1,55 @@
+# The same app with the mistakes fixed. Run: meshdoctor testdata/good.yaml
+apiVersion: v1
+kind: Namespace
+metadata: {name: shop, labels: {istio-injection: enabled}}
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata: {name: default, namespace: shop}
+spec: {mtls: {mode: STRICT}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: web-v1, namespace: shop}
+spec:
+  template:
+    metadata: {labels: {app: web, version: v1}}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata: {name: web, namespace: shop}
+spec:
+  hosts: [web]
+  http:
+    - timeout: 5s
+      retries: {attempts: 2, perTryTimeout: 2s, retryOn: "5xx,connect-failure"}
+      route:
+        - {destination: {host: web, subset: v1}, weight: 90}
+        - {destination: {host: web, subset: v2}, weight: 10}
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata: {name: web, namespace: shop}
+spec:
+  host: web
+  trafficPolicy:
+    tls: {mode: ISTIO_MUTUAL}
+    outlierDetection: {consecutive5xxErrors: 3, interval: 2s, baseEjectionTime: 30s, maxEjectionPercent: 50}
+  subsets: [{name: v1, labels: {version: v1}}, {name: v2, labels: {version: v2}}]
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata: {name: edge, namespace: shop}
+spec:
+  selector: {istio: ingressgateway}
+  servers:
+    - {port: {number: 80, name: http, protocol: HTTP}, hosts: ["*"], tls: {httpsRedirect: true}}
+    - {port: {number: 443, name: https, protocol: HTTPS}, hosts: ["*"], tls: {mode: SIMPLE, credentialName: edge-cert}}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata: {name: web-from-client, namespace: shop}
+spec:
+  selector: {matchLabels: {app: web}}
+  rules:
+    - from: [{source: {principals: ["cluster.local/ns/shop/sa/client"]}}]

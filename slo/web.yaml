@@ -1,0 +1,5 @@
+# Availability SLO for the web service, measured from Istio's own request metric.
+service: web
+namespace: shop
+objective: 99.9      # percent of requests that must not be 5xx
+window_days: 30
