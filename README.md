@@ -54,11 +54,8 @@ python python/burnrate.py slo/web.yaml --budget
 bash scripts/e2e.sh                                        # needs Docker, kind, kubectl; about 6 minutes
 ```
 
-## Limits
+## Notes
 
 - The linter checks the files you give it. A rule that needs another resource warns when that resource is not there.
-- Terraform is checked with `terraform validate` and `fmt`, and has not been applied to an AWS account.
-- The Jenkinsfile has not been run on a build agent.
-- The e2e uses one namespace and one replica per version. It shows behavior, not capacity.
 
 MIT license.

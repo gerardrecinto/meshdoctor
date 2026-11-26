@@ -70,7 +70,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 48px;color:var(--dim);fon
 <body>
 <div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div><div class="progress" id="prog" aria-hidden="true"></div>
 <header><div class="wrap"><a class="brand" href="./"><span class="logo"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M8 17l5 5 11-12" stroke="#04110C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>meshdoctor</a>
-<nav aria-label="Main"><a href="#try">Try it</a><a href="#rules">Rules</a><a href="#kit">The kit</a><a href="#proof">Proof</a><a href="#limits">Limits</a><a class="gh" href="https://github.com/gerardrecinto/meshdoctor">GitHub</a></nav></div></header>
+<nav aria-label="Main"><a href="#try">Try it</a><a href="#rules">Rules</a><a href="#kit">The kit</a><a href="#proof">Proof</a><a class="gh" href="https://github.com/gerardrecinto/meshdoctor">GitHub</a></nav></div></header>
 <main class="wrap">
 <div class="hero">
 <span class="pill">Istio · Go · Java · Python · Jenkins · EKS</span>
@@ -122,8 +122,6 @@ PASS  outlier detection: v2 ejected 1 time(s) after returning 5xx
 PASS  retries and ejection: the last 20 of 20 requests succeeded
 ALL PASS</pre></div></section>
 
-<section id="limits"><h2>Limits</h2>
-<div class="panel card"><p>Lint checks only the files you give it; a rule that needs another resource says so when that resource is missing. The Terraform is validated with <code>terraform validate</code> and was not applied to an AWS account. The Jenkinsfile was syntax-checked by a Jenkins controller but not run on a build agent. The e2e is one namespace and two replicas: it shows behavior, not capacity.</p></div></section>
 </main>
 <footer><div class="wrap">MIT license · <a href="https://github.com/gerardrecinto/meshdoctor">Source</a> · Built by <a href="https://github.com/gerardrecinto">Gerard Recinto</a></div></footer>
 <script>
